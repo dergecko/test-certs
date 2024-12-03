@@ -2,8 +2,9 @@
 name = "test-certs"
 version = "0.1.0"
 edition = "2021"
+default-run = "test-certs"
 
 [dependencies]
 thiserror = "2"
-rcgen = { version = "0.13", optional = true }
+rcgen = "0.13"
 anyhow = "1"
