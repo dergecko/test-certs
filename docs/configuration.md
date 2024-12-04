@@ -1,44 +1,8 @@
 # Configuration
 
-This documents the evaluation and ideas how to descriibe the certifiacte chain with YAML (or any other serializable/deserializable format supported by [serde]).
+This documents the evaluation and ideas how to describe the certificate chain with YAML (or any other serializable/deserializable format supported by [serde]).
 
-## Idea 1
-
-Define each cert on it's own and have a relation wit the property `signed`, where `self` is a specific key word that this is a self-signed certificate.
-
-```yaml
-certificate:
-    name: root
-    signed: self
-    key_usages:
-        - KeyCertSign
-        - DigitalSignature
-
-certificate: 
-    name: intermediate
-    signed: root
-    key_usages:
-        - KeyCertSign
-        - DigitalSignature
-
-certificate: 
-    name: client
-    signed: intermediate
-    export_key: true
-    include_certificate_chain: true
-    extended_key_usages:
-        - ClientAuth
-
-certificate: 
-    name: server
-    signed: intermediate
-    export_key: true
-    include_certificate_chain: true
-    extended_key_usages:
-        - ServerAuth
-```
-
-## Idea 2
+## Idea
 
 Define a chain of nested certificates and specialize the type of certificate with the `type` property.
 All certificates will be exported excluding their private key file.
@@ -47,20 +11,37 @@ Only for certificates of type `client` or `server` the private key is also expor
 ```yaml
 my-root-ca:
     type: ca
+    export_key: true
+    meta_data: ...
     children:
         - my-intermediate-ca:
           type: ca
+          export_key: true
           children:
             - my-client:
               type: client
+              signature_algorithm: rsa
               include_certificate_chain: true
               dns_name: my-client.org
               ip: 192.168.17.35
            - my-server:
               type: server
+              signature_algorithm: ecdsa
               include_certificate_chain: true
               dns_name: my-server.org
               ip: 192.168.17.77
+```
+
+Client certificate without a ca.
+
+```yaml
+my-client:
+    type: client
+    signature_algorithm: 
+        type: rsa
+        key_length: 4048
+    dns_name: my-client.org
+    ip: 192.168.17.35
 ```
 
 [serde]: (https://crates.io/crates/serde)
