@@ -1,183 +1,50 @@
-use std::collections::HashMap;
+//! Provides functionality to configure the application and certificate generation.
+use std::{fmt::Display, path::PathBuf};
 
-use serde::{Deserialize, Serialize};
+use clap::{Parser, ValueEnum};
 
-/// This is the root structure that contains all certificate chains.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Certificates {
-    /// All certificates
-    #[serde(flatten)]
-    pub certificates: HashMap<String, CertificateTypes>,
+pub mod certificates;
+
+/// Create a set of certificates including a self signed CA.
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+pub struct Args {
+    /// Configuration file that contains the certificate generation definition.
+    #[arg(short, long, default_value = "./certificate_generation.yaml")]
+    pub configuration: PathBuf,
+
+    /// Use the provided configuration language.
+    #[arg(default_value_t = ConfigFormat::Yaml)]
+    pub format: ConfigFormat,
 }
 
-/// The certificate authority to sign other certificates.
-#[derive(Debug, Default, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct CertificateAuthority {
-    /// Enables the export of the private key file
-    pub export_key: bool,
-
-    /// Certificates that are signed by this CA
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
-    pub certificates: HashMap<String, CertificateTypes>,
+/// Available configuration formats
+#[derive(Debug, Clone, ValueEnum)]
+pub enum ConfigFormat {
+    /// YAML Ain't Markup Language
+    Yaml,
+    /// JavaScript Object Notation
+    Json,
 }
 
-/// A certificate used for client authentication
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct Client {
-    /// Enables the export of the private key file
-    pub export_key: bool,
-}
-
-/// A certificate used for server authentication
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct Server {
-    /// Enables the export of the private key file
-    pub export_key: bool,
-}
-
-/// All kinds of different certificates
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "lowercase")]
-pub enum CertificateTypes {
-    /// A certificate that acts as a Certificate Authority
-    #[serde(alias = "ca")]
-    CertificateAuthority(CertificateAuthority),
-
-    /// A certificate for client authentication
-    Client(Client),
-
-    /// A certificate for server authentication
-    Server(Server),
-}
-
-impl Default for Client {
-    fn default() -> Self {
-        Self { export_key: true }
-    }
-}
-
-impl Default for Server {
-    fn default() -> Self {
-        Self { export_key: true }
+impl Display for ConfigFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConfigFormat::Json => f.write_str("json"),
+            ConfigFormat::Yaml => f.write_str("yaml"),
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
-
     use super::*;
 
-    fn get_ca(cert: &CertificateTypes) -> &CertificateAuthority {
-        assert!(matches!(cert, CertificateTypes::CertificateAuthority(_)));
-        let ca = match cert {
-            CertificateTypes::CertificateAuthority(certificate_authority) => certificate_authority,
-            _ => panic!("expected ca certificate"),
-        };
-        ca
-    }
+    #[test]
+    fn should_parse_args() {
+        let args = Args::try_parse_from(&["", "--configuration", "./file.yaml", "json"]).unwrap();
 
-    mod json {
-        use super::*;
-
-        #[test]
-        fn should_deserialize_ca() {
-            let json = json!({
-                "type": "ca",
-            });
-
-            let ca: CertificateTypes = serde_json::from_value(json).unwrap();
-
-            assert!(matches!(ca, CertificateTypes::CertificateAuthority(_)))
-        }
-
-        #[test]
-        fn should_fail_on_unkown_field() {
-            let json = json!({
-                "type": "ca",
-                "bambu": "solala"
-            });
-
-            let result: Result<CertificateTypes, _> = serde_json::from_value(json);
-
-            assert!(result.is_err())
-        }
-
-        #[test]
-        fn should_deserialize_nested_certificates() {
-            let json = json!({
-                "type": "ca",
-                "certificates": {
-                    "intermediate_ca": {
-                    "type": "ca",
-                    "certificates": {
-                        "client_cert": {
-                            "type": "client",
-                            "export_key": true
-                        },
-                        "server_cert": {
-                            "type": "client",
-                            "export_key": true
-                        }
-                    }
-                }
-                }
-            });
-
-            let ca: CertificateTypes = serde_json::from_value(json).unwrap();
-            let ca = get_ca(&ca);
-            let intermediate_ca = ca.certificates.get("intermediate_ca").unwrap();
-            let intermediate_ca = get_ca(intermediate_ca);
-
-            assert_eq!(intermediate_ca.certificates.len(), 2);
-        }
-    }
-
-    mod yaml {
-        use super::*;
-
-        #[test]
-        fn should_serialize_certificateauthority() {
-            let certificates = Certificates {
-                certificates: HashMap::from([(
-                    "my-ca".to_string(),
-                    CertificateTypes::CertificateAuthority(CertificateAuthority {
-                        certificates: HashMap::new(),
-                        export_key: false,
-                    }),
-                )]),
-            };
-
-            let certificates_yaml = serde_yaml::to_string(&certificates).unwrap();
-
-            assert_eq!(
-                r#"my-ca:
-  type: certificateauthority
-  export_key: false
-"#,
-                certificates_yaml
-            );
-        }
-
-        #[test]
-        fn should_deserialize_ca() {
-            let yaml = r#"type: ca"#;
-
-            let ca: CertificateTypes = serde_yaml::from_str(yaml).unwrap();
-
-            assert!(matches!(ca, CertificateTypes::CertificateAuthority(_)))
-        }
-
-        #[test]
-        fn should_deserialize_certificateauthority() {
-            let yaml = r#"type: certificateauthority"#;
-
-            let ca: CertificateTypes = serde_yaml::from_str(yaml).unwrap();
-
-            assert!(matches!(ca, CertificateTypes::CertificateAuthority(_)))
-        }
+        assert_eq!(args.configuration.display().to_string(), "./file.yaml");
+        assert_eq!(args.format.to_string(), "json");
     }
 }

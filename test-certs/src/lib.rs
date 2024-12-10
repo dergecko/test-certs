@@ -11,7 +11,7 @@ use rcgen::{
     KeyUsagePurpose,
 };
 
-mod configuration;
+pub mod configuration;
 
 /// Errors when working with certificates.
 #[derive(Debug, thiserror::Error)]
@@ -31,7 +31,7 @@ impl Debug for CertKeyPair {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CertKey")
             .field("certificate", &self.certificate.pem())
-            .field("key", &self.key)
+            .field("key", &self.key.serialize_pem())
             .finish()
     }
 }
