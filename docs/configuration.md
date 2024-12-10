@@ -13,11 +13,11 @@ my-root-ca:
     type: ca
     export_key: true
     meta_data: ...
-    children:
+    certificates:
         - my-intermediate-ca:
           type: ca
           export_key: true
-          children:
+          certificates:
             - my-client:
               type: client
               signature_algorithm: rsa
