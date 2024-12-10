@@ -28,7 +28,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     info!(
-        "Loaded {} root certificates",
+        "Loaded {} root certificate(s)",
         certificates.certificates.len()
     );
 

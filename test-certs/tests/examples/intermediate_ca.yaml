@@ -1,0 +1,12 @@
+my-root-ca:
+  type: ca
+  export_key: true
+  certificates:
+    my-intermediate-ca:
+      type: ca
+      export_key: true
+      certificates:
+        my-client:
+          type: client
+        my-server:
+          type: server

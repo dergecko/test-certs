@@ -14,17 +14,17 @@ my-root-ca:
     export_key: true
     meta_data: ...
     certificates:
-        - my-intermediate-ca:
+        my-intermediate-ca:
           type: ca
           export_key: true
           certificates:
-            - my-client:
+            my-client:
               type: client
               signature_algorithm: rsa
               include_certificate_chain: true
               dns_name: my-client.org
               ip: 192.168.17.35
-           - my-server:
+           my-server:
               type: server
               signature_algorithm: ecdsa
               include_certificate_chain: true
