@@ -11,6 +11,8 @@ use rcgen::{
     KeyUsagePurpose,
 };
 
+mod configuration;
+
 /// Errors when working with certificates.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
