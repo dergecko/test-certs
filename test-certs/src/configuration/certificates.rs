@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 /// This is the root structure that contains all certificate chains.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Certificates {
     /// All certificates
     #[serde(flatten)]
@@ -13,7 +13,7 @@ pub struct Certificates {
 }
 
 /// The certificate authority to sign other certificates.
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
 pub struct CertificateAuthority {
     /// Enables the export of the private key file
@@ -25,7 +25,7 @@ pub struct CertificateAuthority {
 }
 
 /// A certificate used for client authentication
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
 pub struct Client {
     /// Enables the export of the private key file
@@ -33,7 +33,7 @@ pub struct Client {
 }
 
 /// A certificate used for server authentication
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
 pub struct Server {
     /// Enables the export of the private key file
@@ -41,7 +41,7 @@ pub struct Server {
 }
 
 /// All kinds of different certificates
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum CertificateTypes {
     /// A certificate that acts as a Certificate Authority
@@ -126,7 +126,7 @@ mod tests {
                         }
                     }
                 }
-                }
+            }
             });
 
             let ca: CertificateTypes = serde_json::from_value(json).unwrap();
@@ -135,6 +135,27 @@ mod tests {
             let intermediate_ca = get_ca(intermediate_ca);
 
             assert_eq!(intermediate_ca.certificates.len(), 2);
+        }
+
+        #[test]
+        fn should_serde_roundtrip() {
+            let certs = Certificates {
+                certificates: HashMap::from_iter([(
+                    "my-ca".to_string(),
+                    CertificateTypes::CertificateAuthority(CertificateAuthority {
+                        export_key: true,
+                        certificates: HashMap::from_iter([(
+                            "client".to_string(),
+                            CertificateTypes::Client(Client { export_key: true }),
+                        )]),
+                    }),
+                )]),
+            };
+
+            let serialized = serde_json::to_string(&certs).unwrap();
+            let deserialized: Certificates = serde_json::from_str(&serialized).unwrap();
+
+            assert_eq!(deserialized, certs)
         }
     }
 
