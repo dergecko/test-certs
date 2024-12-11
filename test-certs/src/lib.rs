@@ -4,12 +4,11 @@
 #![warn(missing_debug_implementations)]
 #![warn(clippy::unwrap_used)]
 
-use std::fmt::Debug;
+use std::{fmt::Debug, io::Write, path::PathBuf};
 
 use configuration::certificates::CertificateTypes;
 use rcgen::{
-    BasicConstraints, Certificate, CertificateParams, DistinguishedName, DnType, IsCa, KeyPair,
-    KeyUsagePurpose,
+    BasicConstraints, CertificateParams, DistinguishedName, DnType, IsCa, KeyPair, KeyUsagePurpose,
 };
 
 pub mod configuration;
@@ -20,26 +19,61 @@ pub enum Error {
     /// Errors when working with rcgen to create and sign certificates.
     #[error("Could not generate certificate")]
     FailedToCreateCertificate(#[from] rcgen::Error),
+
+    /// Error to write the certificate to disk
+    #[error("Could not write certificate to '{0}'")]
+    FailedToWriteCertificate(PathBuf),
+
+    /// Error to write the certificate  key to disk
+    #[error("Could not write certificate key to '{0}'")]
+    FailedToWriteKey(PathBuf),
+
+    /// Multiple errors that occurred while working with certificates
+    #[error("Multiple errors occurred")]
+    ErrorCollection(Vec<Error>),
 }
 
 /// A pair of a certificate and the corresponding private key.
 #[allow(unused, reason = "Initial draft therefore values are not used yet")]
-pub struct CertKeyPair {
-    certificate: Certificate,
+pub struct Certificate {
+    certificate: rcgen::Certificate,
     key: KeyPair,
     export_key: bool,
     name: String,
 }
 
+impl Certificate {
+    /// Write the certificate and the key if marked for export to the specified folder.
+    ///
+    /// This fails if the folder is not accessible.
+    pub fn write(&self, directory: &PathBuf) -> Result<(), Error> {
+        let cert_file = directory.join(format!("{}.pem", &self.name));
+
+        let mut cert = std::fs::File::create(&cert_file)
+            .map_err(|_| Error::FailedToWriteCertificate(cert_file.clone()))?;
+        cert.write_fmt(format_args!("{}", self.certificate.pem()))
+            .map_err(|_| Error::FailedToWriteCertificate(cert_file))?;
+
+        if self.export_key {
+            let key_file = directory.join(format!("{}.key", &self.name));
+            let mut key = std::fs::File::create(&key_file)
+                .map_err(|_| Error::FailedToWriteCertificate(key_file.clone()))?;
+            key.write_fmt(format_args!("{}", self.key.serialize_pem()))
+                .map_err(|_| Error::FailedToWriteCertificate(key_file))?;
+        }
+        Ok(())
+    }
+}
+
 /// Generates all certificates that are present in the configuration file.
 ///
 /// Each certificate chain is evaluated from the specified root certificate.
-/// If one certificate in the chain could not be created the corresponding 
+/// If one certificate in the chain could not be created the corresponding
 /// error is reported and the chain will not be generated.
 pub fn generate(
-    certificate_config: configuration::certificates::Certificates,
-) -> Result<Vec<CertKeyPair>, Vec<Error>> {
-    let certs: Vec<Result<Vec<CertKeyPair>, Error>> = certificate_config
+    certificate_config: configuration::certificates::CertificateRoot,
+) -> Result<Vec<Certificate>, Error> {
+    let certs: Vec<Result<Vec<Certificate>, Error>> = certificate_config
         .certificates
         .iter()
         .map(|(name, config)| generate_certificates(name, config, None))
@@ -55,7 +89,7 @@ pub fn generate(
     }
 
     if !errors.is_empty() {
-        return Err(errors);
+        return Err(Error::ErrorCollection(errors));
     }
 
     Ok(certificates)
@@ -65,8 +99,8 @@ pub fn generate(
 fn generate_certificates(
     name: &str,
     config: &CertificateTypes,
-    issuer: Option<&CertKeyPair>,
-) -> Result<Vec<CertKeyPair>, Error> {
+    issuer: Option<&Certificate>,
+) -> Result<Vec<Certificate>, Error> {
     let mut result = vec![];
     let issuer = create_certificate(name, config, issuer)?;
 
@@ -83,8 +117,8 @@ fn generate_certificates(
 fn create_certificate(
     name: &str,
     certificate_config: &CertificateTypes,
-    issuer: Option<&CertKeyPair>,
-) -> Result<CertKeyPair, Error> {
+    issuer: Option<&Certificate>,
+) -> Result<Certificate, Error> {
     let key = KeyPair::generate()?;
 
     // TODO: right now the certificate type is ignored and no client or server auth certs are generated
@@ -94,7 +128,7 @@ fn create_certificate(
         issuer_params(name).self_signed(&key)?
     };
 
-    Ok(CertKeyPair {
+    Ok(Certificate {
         certificate,
         key,
         export_key: certificate_config.export_key(),
@@ -102,7 +136,7 @@ fn create_certificate(
     })
 }
 
-impl Debug for CertKeyPair {
+impl Debug for Certificate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CertKey")
             .field("certificate", &self.certificate.pem())
@@ -129,6 +163,7 @@ mod test {
     use configuration::certificates::fixtures::{
         ca_with_client, certificate_ca_with_client, client,
     };
+    use testdir::testdir;
 
     use super::*;
 
@@ -147,6 +182,7 @@ mod test {
     fn should_create_certificate() {
         let config = client();
         let result = create_certificate("test", &config, None);
+
         assert!(result.is_ok())
     }
 
@@ -154,6 +190,24 @@ mod test {
     fn should_generate_certificates() {
         let config = ca_with_client();
         let result = generate_certificates("my-ca", &config, None);
+
         assert!(result.is_ok())
+    }
+
+    #[test]
+    fn should_write_certificate_to_file() {
+        let dir = testdir!();
+        let config = client();
+        let certificates = generate_certificates("my-client", &config, None).unwrap();
+        let certificate = certificates.first().unwrap();
+
+        certificate.write(&dir).unwrap();
+
+        let file_exists = dir
+            .read_dir()
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .any(|f| f.file_name() == "my-client.pem");
+        assert!(file_exists)
     }
 }

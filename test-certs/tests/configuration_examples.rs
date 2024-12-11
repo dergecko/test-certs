@@ -25,4 +25,5 @@ fn should_load_example_config() {
         stdout.contains("Loaded 1 root certificate(s)"),
         "stdout does not contain 'Loaded 1 root certificate(s)', stdout: \n{stdout}"
     )
+    // TODO: check if files exists!
 }

@@ -2,7 +2,10 @@
 //! client and server certificates that can be used for mutual TLS connections.
 
 use clap::Parser;
-use test_certs::configuration::{certificates::Certificates, Args};
+use test_certs::{
+    configuration::{certificates::CertificateRoot, Args},
+    generate,
+};
 use tracing::info;
 
 fn main() -> anyhow::Result<()> {
@@ -10,7 +13,7 @@ fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
     let args = Args::parse();
 
-    let certificates: Certificates = match args.format {
+    let root: CertificateRoot = match args.format {
         test_certs::configuration::ConfigFormat::Yaml => {
             info!(
                 "Loading YAML certificate generation file {:?}",
@@ -27,10 +30,17 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    info!(
-        "Loaded {} root certificate(s)",
-        certificates.certificates.len()
-    );
+    info!("Loaded {} root certificate(s)", root.certificates.len());
+
+    std::fs::DirBuilder::new()
+        .recursive(true)
+        .create(&args.outdir)?;
+
+    let certificates = generate(root)?;
+
+    for cert in certificates {
+        cert.write(&args.outdir)?;
+    }
 
     Ok(())
 }

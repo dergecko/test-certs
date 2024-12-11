@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 /// This is the root structure that contains all certificate chains.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Certificates {
+pub struct CertificateRoot {
     /// All certificates
     #[serde(flatten)]
     pub certificates: HashMap<String, CertificateTypes>,
@@ -15,7 +15,7 @@ pub struct Certificates {
 /// The certificate authority to sign other certificates.
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
-pub struct CertificateAuthority {
+pub struct CertificateAuthorityConfiguration {
     /// Enables the export of the private key file.
     pub export_key: bool,
 
@@ -27,7 +27,7 @@ pub struct CertificateAuthority {
 /// A certificate used for client authentication.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
-pub struct Client {
+pub struct ClientConfiguration {
     /// Enables the export of the private key file.
     pub export_key: bool,
 }
@@ -35,7 +35,7 @@ pub struct Client {
 /// A certificate used for server authentication.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
-pub struct Server {
+pub struct ServerConfiguration {
     /// Enables the export of the private key file.
     pub export_key: bool,
 }
@@ -46,13 +46,13 @@ pub struct Server {
 pub enum CertificateTypes {
     /// A certificate that acts as a Certificate Authority.
     #[serde(alias = "ca")]
-    CertificateAuthority(CertificateAuthority),
+    CertificateAuthority(CertificateAuthorityConfiguration),
 
     /// A certificate for client authentication.
-    Client(Client),
+    Client(ClientConfiguration),
 
     /// A certificate for server authentication.
-    Server(Server),
+    Server(ServerConfiguration),
 }
 
 impl CertificateTypes {
@@ -83,13 +83,13 @@ impl CertificateTypes {
 /// The [`LazyLock`] is required as a HashMap::new is not usable in const expressions.
 static NO_CERTIFICATES: LazyLock<HashMap<String, CertificateTypes>> = LazyLock::new(HashMap::new);
 
-impl Default for Client {
+impl Default for ClientConfiguration {
     fn default() -> Self {
         Self { export_key: true }
     }
 }
 
-impl Default for Server {
+impl Default for ServerConfiguration {
     fn default() -> Self {
         Self { export_key: true }
     }
@@ -101,8 +101,8 @@ pub mod fixtures {
     use super::*;
 
     /// Creates a certificate authority and a server and client certificated that are issued by it.
-    pub fn certificate_ca_with_client() -> Certificates {
-        let certs = Certificates {
+    pub fn certificate_ca_with_client() -> CertificateRoot {
+        let certs = CertificateRoot {
             certificates: HashMap::from([("ca".to_string(), ca_with_client())]),
         };
         certs
@@ -110,21 +110,21 @@ pub mod fixtures {
 
     /// Creates a certificate of type ca with a client cert.
     pub fn ca_with_client() -> CertificateTypes {
-        CertificateTypes::CertificateAuthority(CertificateAuthority {
+        CertificateTypes::CertificateAuthority(CertificateAuthorityConfiguration {
             certificates: HashMap::from([(
                 "client".to_string(),
-                CertificateTypes::Client(Client::default()),
+                CertificateTypes::Client(ClientConfiguration::default()),
             )]),
             ..Default::default()
         })
     }
 
     /// Creates a client certificate.
-    pub fn certificate_client() -> Certificates {
-        let certs = Certificates {
+    pub fn certificate_client() -> CertificateRoot {
+        let certs = CertificateRoot {
             certificates: HashMap::from([(
                 "client".to_string(),
-                CertificateTypes::Client(Client::default()),
+                CertificateTypes::Client(ClientConfiguration::default()),
             )]),
         };
         certs
@@ -132,15 +132,15 @@ pub mod fixtures {
 
     /// Creates a certificate of type client.
     pub fn client() -> CertificateTypes {
-        CertificateTypes::Client(Client::default())
+        CertificateTypes::Client(ClientConfiguration::default())
     }
 
     /// Creates a certificate authority without any other certificates.
-    pub fn certificate_ca() -> Certificates {
-        let certs = Certificates {
+    pub fn certificate_ca() -> CertificateRoot {
+        let certs = CertificateRoot {
             certificates: HashMap::from([(
                 "ca".to_string(),
-                CertificateTypes::CertificateAuthority(CertificateAuthority::default()),
+                CertificateTypes::CertificateAuthority(CertificateAuthorityConfiguration::default()),
             )]),
         };
         certs
@@ -153,7 +153,7 @@ mod tests {
     use fixtures::certificate_ca_with_client;
     use serde_json::json;
 
-    fn get_ca(cert: &CertificateTypes) -> &CertificateAuthority {
+    fn get_ca(cert: &CertificateTypes) -> &CertificateAuthorityConfiguration {
         assert!(matches!(cert, CertificateTypes::CertificateAuthority(_)));
         let ca = match cert {
             CertificateTypes::CertificateAuthority(certificate_authority) => certificate_authority,
@@ -222,7 +222,7 @@ mod tests {
             let certs = certificate_ca_with_client();
 
             let serialized = serde_json::to_string(&certs).unwrap();
-            let deserialized: Certificates = serde_json::from_str(&serialized).unwrap();
+            let deserialized: CertificateRoot = serde_json::from_str(&serialized).unwrap();
 
             assert_eq!(deserialized, certs)
         }
@@ -233,10 +233,10 @@ mod tests {
 
         #[test]
         fn should_serialize_certificateauthority() {
-            let certificates = Certificates {
+            let certificates = CertificateRoot {
                 certificates: HashMap::from([(
                     "my-ca".to_string(),
-                    CertificateTypes::CertificateAuthority(CertificateAuthority {
+                    CertificateTypes::CertificateAuthority(CertificateAuthorityConfiguration {
                         certificates: HashMap::new(),
                         export_key: false,
                     }),
@@ -277,7 +277,7 @@ mod tests {
             let certs = certificate_ca_with_client();
 
             let serialized = serde_yaml::to_string(&certs).unwrap();
-            let deserialized: Certificates = serde_yaml::from_str(&serialized).unwrap();
+            let deserialized: CertificateRoot = serde_yaml::from_str(&serialized).unwrap();
 
             assert_eq!(deserialized, certs)
         }
