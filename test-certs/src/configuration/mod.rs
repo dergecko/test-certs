@@ -18,12 +18,12 @@ pub struct Args {
     pub format: ConfigFormat,
 }
 
-/// Available configuration formats
+/// Available configuration formats.
 #[derive(Debug, Clone, ValueEnum)]
 pub enum ConfigFormat {
-    /// YAML Ain't Markup Language
+    /// YAML Ain't Markup Language.
     Yaml,
-    /// JavaScript Object Notation
+    /// JavaScript Object Notation.
     Json,
 }
 
