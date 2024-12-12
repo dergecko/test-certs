@@ -25,6 +25,7 @@ pub struct CertificateAuthorityConfiguration {
 }
 
 /// A certificate used for client authentication.
+// NOTE: A shared basic cert configuration could come in handy to not have to duplicate all cert properties for clients and servers
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct ClientConfiguration {
@@ -33,7 +34,9 @@ pub struct ClientConfiguration {
     pub export_key: bool,
 
     /// Ip address of the client.
+    // TODO: maybe allow multiple Ip addresses?
     pub ip: IpAddr,
+    // TODO: Have a dns name that is used for the subject alt names
 }
 
 /// A certificate used for server authentication.
@@ -45,7 +48,9 @@ pub struct ServerConfiguration {
     pub export_key: bool,
 
     /// Ip address of the server.
+    // TODO: maybe allow multiple Ip addresses?
     pub ip: IpAddr,
+    // TODO: Have a dns name that is used for the subject alt names
 }
 
 /// All kinds of different certificates.

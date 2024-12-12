@@ -13,7 +13,8 @@ use crate::{
     Certificate, Error,
 };
 
-/// Trait to convert [`CertificateType`] to [`Certificate`].
+/// Extension trait to convert [`CertificateType`] to [`Certificate`].
+// NOTE: Instead of a trait use actual types?
 pub trait CertificateGenerator {
     /// Build a [`Certificate`].
     fn build(&self, name: &str, issuer: Option<&Certificate>) -> Result<Certificate, Error>;
