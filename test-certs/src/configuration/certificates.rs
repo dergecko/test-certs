@@ -1,8 +1,9 @@
 //! Certificate generation configuration.
-//!
+
 use std::{collections::HashMap, net::IpAddr, sync::LazyLock};
 
 use serde::{Deserialize, Serialize};
+use serde_with::{OneOrMany, formats::PreferOne, serde_as};
 
 /// This is the root structure that contains all certificate chains.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -25,7 +26,8 @@ pub struct CertificateAuthorityConfiguration {
 }
 
 /// A certificate used for client authentication.
-// NOTE: A shared basic cert configuration could come in handy to not have to duplicate all cert properties for clients and servers
+// NOTE: A shared basic cert configuration could come in handy to not have to duplicate
+//       all cert properties for clients and servers.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct ClientConfiguration {
@@ -33,10 +35,9 @@ pub struct ClientConfiguration {
     #[serde(default = "ClientConfiguration::default_export_key")]
     pub export_key: bool,
 
-    /// Ip address of the client.
-    // TODO: maybe allow multiple Ip addresses?
-    pub ip: IpAddr,
-    // TODO: Have a dns name that is used for the subject alt names
+    /// Properties that will be set as Subject Alternative Names (SAN)s.
+    #[serde(flatten)]
+    pub subject_alternative_names: SubjectAlternativeNames,
 }
 
 /// A certificate used for server authentication.
@@ -47,10 +48,26 @@ pub struct ServerConfiguration {
     #[serde(default = "ServerConfiguration::default_export_key")]
     pub export_key: bool,
 
-    /// Ip address of the server.
-    // TODO: maybe allow multiple Ip addresses?
-    pub ip: IpAddr,
-    // TODO: Have a dns name that is used for the subject alt names
+    /// Properties that will be set as Subject Alternative Names (SAN)s.
+    #[serde(flatten)]
+    pub subject_alternative_names: SubjectAlternativeNames,
+}
+
+/// Values that will be set as Subject Alternative Names (SAN) of the generated certificate.
+///
+/// [RFC 5280](https://www.rfc-editor.org/rfc/rfc5280#section-4.2.1.6) describes how dns names and
+/// IP addresses are handled in x509 certificates.
+#[serde_as]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct SubjectAlternativeNames {
+    /// Ip addresses of the client.
+    #[serde_as(as = "OneOrMany<_, PreferOne>")]
+    pub ip: Vec<IpAddr>,
+
+    /// DNS names of the client
+    #[serde_as(as = "OneOrMany<_, PreferOne>")]
+    pub dns_name: Vec<String>,
 }
 
 /// All kinds of different certificates.
@@ -159,16 +176,22 @@ pub mod fixtures {
     /// Provides a [`CertificateType`] that is a client certificate.
     pub fn client_certificate_type() -> CertificateType {
         CertificateType::Client(ClientConfiguration {
-            ip: IpAddr::V4(Ipv4Addr::LOCALHOST),
             export_key: ClientConfiguration::default_export_key(),
+            subject_alternative_names: SubjectAlternativeNames {
+                ip: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+                dns_name: vec!["my-client.org".to_string()],
+            },
         })
     }
 
     /// Provides a [`CertificateType`] that is a server certificate.
     pub fn server_certificate_type() -> CertificateType {
         CertificateType::Server(ServerConfiguration {
-            ip: IpAddr::V4(Ipv4Addr::LOCALHOST),
             export_key: ServerConfiguration::default_export_key(),
+            subject_alternative_names: SubjectAlternativeNames {
+                ip: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+                dns_name: vec!["my-server.org".to_string()],
+            },
         })
     }
 }
@@ -189,6 +212,8 @@ mod tests {
     }
 
     mod json {
+        use std::net::Ipv4Addr;
+
         use super::*;
 
         #[test]
@@ -226,11 +251,13 @@ mod tests {
                             "type": "client",
                             "export_key": true,
                             "ip": "192.168.1.10",
+                            "dns_name": "my-client.org"
                         },
                         "server_cert": {
                             "type": "client",
                             "export_key": true,
                             "ip": "192.168.1.1",
+                            "dns_name": "my-server.org"
                         }
                     }
                 }
@@ -253,6 +280,69 @@ mod tests {
             let deserialized: CertificateRoot = serde_json::from_str(&serialized).unwrap();
 
             assert_eq!(deserialized, certs)
+        }
+
+        #[test]
+        fn should_deserialize_client() {
+            let expected = ClientConfiguration {
+                export_key: false,
+                subject_alternative_names: SubjectAlternativeNames {
+                    ip: vec![IpAddr::V4(Ipv4Addr::new(192, 168, 1, 10))],
+                    dns_name: vec!["my-client.org".to_string()],
+                },
+            };
+            let json = json!({
+                "export_key": false,
+                "ip": "192.168.1.10",
+                "dns_name": "my-client.org"
+            });
+
+            let deserialized: ClientConfiguration = serde_json::from_value(json).unwrap();
+
+            assert_eq!(deserialized, expected)
+        }
+
+        #[test]
+        fn should_deserialize_multiple_ips_and_dns_snames() {
+            let expected = ServerConfiguration {
+                export_key: false,
+                subject_alternative_names: SubjectAlternativeNames {
+                    ip: vec![
+                        IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)),
+                        IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)),
+                    ],
+                    dns_name: vec!["my-server.org".to_string(), "my-server.com".to_string()],
+                },
+            };
+            let json = json!({
+                "export_key": false,
+                "ip": ["192.168.1.1", "192.168.1.2"],
+                "dns_name": ["my-server.org", "my-server.com"]
+            });
+
+            let deserialized: ServerConfiguration = serde_json::from_value(json).unwrap();
+
+            assert_eq!(deserialized, expected)
+        }
+
+        #[test]
+        fn should_deserialize_server() {
+            let expected = ServerConfiguration {
+                export_key: false,
+                subject_alternative_names: SubjectAlternativeNames {
+                    ip: vec![IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1))],
+                    dns_name: vec!["my-server.org".to_string()],
+                },
+            };
+            let json = json!({
+                "export_key": false,
+                "ip": "192.168.1.1",
+                "dns_name": "my-server.org"
+            });
+
+            let deserialized: ServerConfiguration = serde_json::from_value(json).unwrap();
+
+            assert_eq!(deserialized, expected)
         }
     }
 

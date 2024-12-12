@@ -3,7 +3,7 @@
 
 use clap::Parser;
 use test_certs::{
-    configuration::{certificates::CertificateRoot, Args},
+    configuration::{Args, certificates::CertificateRoot},
     generate,
 };
 use tracing::info;
@@ -30,7 +30,7 @@ fn main() -> anyhow::Result<()> {
         .recursive(true)
         .create(&args.outdir)?;
 
-    let certificates = generate(root)?;
+    let certificates = generate(&root)?;
 
     for cert in certificates {
         cert.write(&args.outdir)?;

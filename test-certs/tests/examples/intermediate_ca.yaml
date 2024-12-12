@@ -13,7 +13,15 @@ my-root-ca:
         my-client:
           type: client
           ip: 192.168.1.10
+          dns_name: "my-client.org"
         # Create a server auth certificate issued by my-intermediate-ca
         my-server:
           type: server
-          ip: 192.168.1.1
+          # Multiple IPs are also possible
+          ip:
+            - 192.168.1.1
+            - 192.168.1.2
+          # Multiple dns names are also possible
+          dns_name:
+            - "my-server.org"
+            - "my-server.com"

@@ -7,7 +7,7 @@ use crate::{
     Certificate, Error,
     configuration::certificates::{
         CertificateAuthorityConfiguration, CertificateType, ClientConfiguration,
-        ServerConfiguration,
+        ServerConfiguration, SubjectAlternativeNames,
     },
 };
 
@@ -61,7 +61,7 @@ impl ToCertificate for ClientConfiguration {
     fn certificate(&self, name: &str, issuer: Option<&Certificate>) -> Result<Certificate, Error> {
         let key = KeyPair::generate()?;
 
-        let mut certificate_params = certificate_params(name, self.ip)?;
+        let mut certificate_params = certificate_params(name, &self.subject_alternative_names)?;
         certificate_params.extended_key_usages = vec![ExtendedKeyUsagePurpose::ClientAuth];
 
         let certificate = sign_cert(certificate_params, &key, issuer)?;
@@ -79,7 +79,7 @@ impl ToCertificate for ServerConfiguration {
     fn certificate(&self, name: &str, issuer: Option<&Certificate>) -> Result<Certificate, Error> {
         let key = KeyPair::generate()?;
 
-        let mut certificate_params = certificate_params(name, self.ip)?;
+        let mut certificate_params = certificate_params(name, &self.subject_alternative_names)?;
         certificate_params.extended_key_usages = vec![ExtendedKeyUsagePurpose::ServerAuth];
 
         let certificate = sign_cert(certificate_params, &key, issuer)?;
@@ -127,8 +127,17 @@ fn issuer_params(common_name: &str) -> CertificateParams {
 /// Sets basic certificate parameter for client and server auth certificates.
 ///
 /// Sets the subject alt names to the name and the ip.
-fn certificate_params(name: &str, ip: IpAddr) -> Result<CertificateParams, Error> {
-    let mut certificate_params = CertificateParams::new(vec![name.to_string(), ip.to_string()])?;
+fn certificate_params(
+    name: &str,
+    san: &SubjectAlternativeNames,
+) -> Result<CertificateParams, Error> {
+    let params: Vec<String> = san
+        .ip
+        .iter()
+        .map(|ip| ip.to_string())
+        .chain(san.dns_name.iter().cloned())
+        .collect();
+    let mut certificate_params = CertificateParams::new(params)?;
     let mut common_name = DistinguishedName::new();
     common_name.push(DnType::CommonName, name);
     certificate_params.distinguished_name = common_name;
