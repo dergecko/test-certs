@@ -9,9 +9,9 @@ pub mod certificates;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Args {
-    /// Configuration file that contains the certificate generation definition.
-    #[arg(short, long, default_value = "./certificate_generation.yaml")]
-    pub configuration: PathBuf,
+    /// The input file that contains the certificate generation configuration.
+    #[arg(short, long, default_value = "./certificates.yaml")]
+    pub input: PathBuf,
 
     /// Folder where all generated certificates will be saved.
     #[arg(short, long = "out-dir", default_value = "./certificates.d/")]
@@ -47,10 +47,10 @@ mod tests {
     #[test]
     fn should_parse_args() {
         let args =
-            Args::try_parse_from(&["", "--configuration", "./file.yaml", "--out-dir", "./certs", "json"])
+            Args::try_parse_from(&["", "--input", "./file.yaml", "--out-dir", "./certs", "json"])
                 .unwrap();
 
-        assert_eq!(args.configuration.display().to_string(), "./file.yaml");
+        assert_eq!(args.input.display().to_string(), "./file.yaml");
         assert_eq!(args.format.to_string(), "json");
         assert_eq!(args.outdir.display().to_string(), "./certs");
     }

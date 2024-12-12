@@ -15,18 +15,12 @@ fn main() -> anyhow::Result<()> {
 
     let root: CertificateRoot = match args.format {
         test_certs::configuration::ConfigFormat::Yaml => {
-            info!(
-                "Loading YAML certificate generation file {:?}",
-                args.configuration
-            );
-            serde_yaml::from_reader(std::fs::File::open(args.configuration.as_path())?)?
+            info!("Loading YAML certificate generation file {:?}", args.input);
+            serde_yaml::from_reader(std::fs::File::open(args.input.as_path())?)?
         }
         test_certs::configuration::ConfigFormat::Json => {
-            info!(
-                "Loading JSON certificate generation file {:?}",
-                args.configuration
-            );
-            serde_json::from_reader(std::fs::File::open(args.configuration.as_path())?)?
+            info!("Loading JSON certificate generation file {:?}", args.input);
+            serde_json::from_reader(std::fs::File::open(args.input.as_path())?)?
         }
     };
 

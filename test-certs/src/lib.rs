@@ -4,9 +4,9 @@
 #![warn(missing_debug_implementations)]
 #![warn(clippy::unwrap_used)]
 
-use std::{fmt::Debug, io::Write, path::PathBuf};
+use std::{fmt::Debug, io::Write, path::Path};
 
-use configuration::certificates::CertificateTypes;
+use configuration::certificates::CertificateType;
 use rcgen::{
     BasicConstraints, CertificateParams, DistinguishedName, DnType, IsCa, KeyPair, KeyUsagePurpose,
 };
@@ -21,12 +21,12 @@ pub enum Error {
     FailedToCreateCertificate(#[from] rcgen::Error),
 
     /// Error to write the certificate to disk
-    #[error("Could not write certificate to '{0}'")]
-    FailedToWriteCertificate(PathBuf),
+    #[error("Could not write certificate")]
+    FailedToWriteCertificate(std::io::Error),
 
-    /// Error to write the certificate  key to disk
-    #[error("Could not write certificate key to '{0}'")]
-    FailedToWriteKey(PathBuf),
+    /// Error to write the certificate key to disk
+    #[error("Could not write certificate key")]
+    FailedToWriteKey(std::io::Error),
 
     /// Multiple errors that occurred while working with certificates
     #[error("Multiple errors occurred")]
@@ -34,7 +34,6 @@ pub enum Error {
 }
 
 /// A pair of a certificate and the corresponding private key.
-#[allow(unused, reason = "Initial draft therefore values are not used yet")]
 pub struct Certificate {
     certificate: rcgen::Certificate,
     key: KeyPair,
@@ -44,32 +43,26 @@ pub struct Certificate {
 
 impl Certificate {
     /// Write the certificate and the key if marked for export to the specified folder.
-    ///
-    /// This fails if the folder is not accessible.
-    pub fn write(&self, directory: &PathBuf) -> Result<(), Error> {
+    pub fn write(&self, directory: &Path) -> Result<(), Error> {
         let cert_file = directory.join(format!("{}.pem", &self.name));
 
-        let mut cert = std::fs::File::create(&cert_file)
-            .map_err(|_| Error::FailedToWriteCertificate(cert_file.clone()))?;
+        let mut cert =
+            std::fs::File::create(&cert_file).map_err(Error::FailedToWriteCertificate)?;
         cert.write_fmt(format_args!("{}", self.certificate.pem()))
-            .map_err(|_| Error::FailedToWriteCertificate(cert_file))?;
+            .map_err(Error::FailedToWriteCertificate)?;
 
         if self.export_key {
             let key_file = directory.join(format!("{}.key", &self.name));
-            let mut key = std::fs::File::create(&key_file)
-                .map_err(|_| Error::FailedToWriteCertificate(key_file.clone()))?;
+            let mut key = std::fs::File::create(&key_file).map_err(Error::FailedToWriteKey)?;
             key.write_fmt(format_args!("{}", self.key.serialize_pem()))
-                .map_err(|_| Error::FailedToWriteCertificate(key_file))?;
+                .map_err(Error::FailedToWriteKey)?;
         }
         Ok(())
     }
 }
 
 /// Generates all certificates that are present in the configuration file.
-///
-/// Each certificate chain is evaluated from the specified root certificate.
-/// If one certificate in the chain could not be created the corresponding
-/// error is reported and the chain will not be generated.
+// TODO: Make builder and return errors and certificates at the same time, maybe with an Iterator?
 pub fn generate(
     certificate_config: configuration::certificates::CertificateRoot,
 ) -> Result<Vec<Certificate>, Error> {
@@ -98,7 +91,7 @@ pub fn generate(
 /// Generates the certificate and all certificates issued by this one.
 fn generate_certificates(
     name: &str,
-    config: &CertificateTypes,
+    config: &CertificateType,
     issuer: Option<&Certificate>,
 ) -> Result<Vec<Certificate>, Error> {
     let mut result = vec![];
@@ -116,7 +109,7 @@ fn generate_certificates(
 /// Create the actual certificate and private key.
 fn create_certificate(
     name: &str,
-    certificate_config: &CertificateTypes,
+    certificate_config: &CertificateType,
     issuer: Option<&Certificate>,
 ) -> Result<Certificate, Error> {
     let key = KeyPair::generate()?;
@@ -161,7 +154,7 @@ fn issuer_params(common_name: &str) -> CertificateParams {
 #[cfg(test)]
 mod test {
     use configuration::certificates::fixtures::{
-        ca_with_client, certificate_ca_with_client, client,
+        ca_with_client_certificate_type, ca_with_client_certificates, client_certificate_type,
     };
     use testdir::testdir;
 
@@ -169,7 +162,7 @@ mod test {
 
     #[test]
     fn should_create_certificates() {
-        let certificate_config = certificate_ca_with_client();
+        let certificate_config = ca_with_client_certificates();
         let certificates = generate(certificate_config).unwrap();
         assert_eq!(
             certificates.len(),
@@ -180,7 +173,7 @@ mod test {
 
     #[test]
     fn should_create_certificate() {
-        let config = client();
+        let config = client_certificate_type();
         let result = create_certificate("test", &config, None);
 
         assert!(result.is_ok())
@@ -188,7 +181,7 @@ mod test {
 
     #[test]
     fn should_generate_certificates() {
-        let config = ca_with_client();
+        let config = ca_with_client_certificate_type();
         let result = generate_certificates("my-ca", &config, None);
 
         assert!(result.is_ok())
@@ -197,7 +190,7 @@ mod test {
     #[test]
     fn should_write_certificate_to_file() {
         let dir = testdir!();
-        let config = client();
+        let config = client_certificate_type();
         let certificates = generate_certificates("my-client", &config, None).unwrap();
         let certificate = certificates.first().unwrap();
 
