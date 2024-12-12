@@ -1,16 +1,14 @@
-use std::net::IpAddr;
-
 use rcgen::{
     BasicConstraints, CertificateParams, DistinguishedName, DnType, ExtendedKeyUsagePurpose, IsCa,
     KeyPair, KeyUsagePurpose,
 };
 
 use crate::{
+    Certificate, Error,
     configuration::certificates::{
         CertificateAuthorityConfiguration, CertificateType, ClientConfiguration,
         ServerConfiguration,
     },
-    Certificate, Error,
 };
 
 /// Extension trait to convert [`CertificateType`] to [`Certificate`].
@@ -20,7 +18,8 @@ pub trait CertificateGenerator {
     fn build(&self, name: &str, issuer: Option<&Certificate>) -> Result<Certificate, Error>;
 }
 
-/// Internal trait to actually implement the logic to create a certificate from a specific certificate configuration.
+/// Internal trait to actually implement the logic to create a certificate from a specific
+/// certificate configuration.
 trait ToCertificate {
     fn certificate(&self, name: &str, issuer: Option<&Certificate>) -> Result<Certificate, Error>;
 }

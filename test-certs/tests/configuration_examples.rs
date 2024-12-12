@@ -1,3 +1,5 @@
+//! Integration tests to check configuration files.
+
 use std::{
     path::{Path, PathBuf},
     process::Command,

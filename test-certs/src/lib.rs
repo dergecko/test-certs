@@ -1,12 +1,8 @@
 //! Code to implement certificate generation and test-certs application logic.
 
-#![warn(missing_docs)]
-#![warn(missing_debug_implementations)]
-#![warn(clippy::unwrap_used)]
-
 use std::{fmt::Debug, io::Write, path::Path};
 
-use configuration::certificates::CertificateType;
+use configuration::certificates::{CertificateRoot, CertificateType};
 use generation::CertificateGenerator as _;
 use rcgen::KeyPair;
 
@@ -63,9 +59,7 @@ impl Certificate {
 
 /// Generates all certificates that are present in the configuration file.
 // TODO: Make builder and return errors and certificates at the same time, maybe with an Iterator?
-pub fn generate(
-    certificate_config: configuration::certificates::CertificateRoot,
-) -> Result<Vec<Certificate>, Error> {
+pub fn generate(certificate_config: &CertificateRoot) -> Result<Vec<Certificate>, Error> {
     let certs: Vec<Result<Vec<Certificate>, Error>> = certificate_config
         .certificates
         .iter()
@@ -74,7 +68,7 @@ pub fn generate(
 
     let mut errors = vec![];
     let mut certificates = vec![];
-    for result in certs.into_iter() {
+    for result in certs {
         match result {
             Ok(mut certs) => certificates.append(&mut certs),
             Err(error) => errors.push(error),
@@ -97,7 +91,7 @@ fn generate_certificates(
     let mut result = vec![];
     let issuer = config.build(name, issuer)?;
 
-    for (name, config) in config.certificates().iter() {
+    for (name, config) in config.certificates() {
         let mut certificates = generate_certificates(name, config, Some(&issuer))?;
         result.append(&mut certificates);
     }
@@ -108,9 +102,18 @@ fn generate_certificates(
 
 impl Debug for Certificate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Certificate {
+            certificate,
+            key,
+            export_key,
+            name,
+        } = self;
+
         f.debug_struct("CertKey")
-            .field("certificate", &self.certificate.pem())
-            .field("key", &self.key.serialize_pem())
+            .field("certificate", &certificate.pem())
+            .field("key", &key.serialize_pem())
+            .field("export_key", export_key)
+            .field("name", name)
             .finish()
     }
 }
@@ -127,7 +130,7 @@ mod test {
     #[test]
     fn should_create_certificates() {
         let certificate_config = ca_with_client_certificates();
-        let certificates = generate(certificate_config).unwrap();
+        let certificates = generate(&certificate_config).unwrap();
         assert_eq!(
             certificates.len(),
             2,
