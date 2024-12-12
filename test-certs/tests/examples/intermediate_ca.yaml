@@ -1,12 +1,19 @@
+# Creates a root ca
 my-root-ca:
+  # the my-root-ca key file is by default not exported
   type: ca
-  export_key: true
   certificates:
+    # my-intermediate-ca is issued by my-root-ca
     my-intermediate-ca:
       type: ca
+      # We want to export the my-intermediate-ca key to be exported
       export_key: true
       certificates:
+        # Create a client auth certificate issued by my-intermediate-ca
         my-client:
           type: client
+          ip: 192.168.1.10
+        # Create a server auth certificate issued by my-intermediate-ca
         my-server:
           type: server
+          ip: 192.168.1.1

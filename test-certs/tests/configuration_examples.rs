@@ -32,5 +32,5 @@ fn should_load_example_config() {
     );
 
     let files = dir.read_dir().unwrap();
-    assert_eq!(files.count(), 8);
+    assert_eq!(files.count(), 7);
 }

@@ -1,6 +1,6 @@
 //! Certificate generation configuration.
 //!
-use std::{collections::HashMap, sync::LazyLock};
+use std::{collections::HashMap, net::IpAddr, sync::LazyLock};
 
 use serde::{Deserialize, Serialize};
 
@@ -26,18 +26,26 @@ pub struct CertificateAuthorityConfiguration {
 
 /// A certificate used for client authentication.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub struct ClientConfiguration {
     /// Enables the export of the private key file.
+    #[serde(default = "ClientConfiguration::default_export_key")]
     pub export_key: bool,
+
+    /// Ip address of the client.
+    pub ip: IpAddr,
 }
 
 /// A certificate used for server authentication.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub struct ServerConfiguration {
     /// Enables the export of the private key file.
+    #[serde(default = "ServerConfiguration::default_export_key")]
     pub export_key: bool,
+
+    /// Ip address of the server.
+    pub ip: IpAddr,
 }
 
 /// All kinds of different certificates.
@@ -83,51 +91,23 @@ impl CertificateType {
     }
 }
 
-impl Default for ClientConfiguration {
-    fn default() -> Self {
-        Self { export_key: true }
+impl ServerConfiguration {
+    fn default_export_key() -> bool {
+        true
     }
 }
 
-impl Default for ServerConfiguration {
-    fn default() -> Self {
-        Self { export_key: true }
+impl ClientConfiguration {
+    fn default_export_key() -> bool {
+        true
     }
 }
-
 /// Fixtures for testing certificate generation.
 #[cfg(any(test, feature = "fixtures"))]
 pub mod fixtures {
+    use std::net::Ipv4Addr;
+
     use super::*;
-
-    /// Provides a [`CertificateRoot`] with a ca certificate that issues one client certificate.
-    pub fn ca_with_client_certificates() -> CertificateRoot {
-        let certs = CertificateRoot {
-            certificates: HashMap::from([("ca".to_string(), ca_with_client_certificate_type())]),
-        };
-        certs
-    }
-
-    /// Provides a [`CertificateType`] that is a ca certificate that issues one client certificate.
-    pub fn ca_with_client_certificate_type() -> CertificateType {
-        CertificateType::CertificateAuthority(CertificateAuthorityConfiguration {
-            certificates: HashMap::from([("client".to_string(), client_certificate_type())]),
-            ..Default::default()
-        })
-    }
-
-    /// Provides a [`CertificateRoot`] with only a client certificate.
-    pub fn single_client_certificate() -> CertificateRoot {
-        let certs = CertificateRoot {
-            certificates: HashMap::from([("client".to_string(), client_certificate_type())]),
-        };
-        certs
-    }
-
-    /// Provides a [`CertificateType`] that is a client certificate.
-    pub fn client_certificate_type() -> CertificateType {
-        CertificateType::Client(ClientConfiguration::default())
-    }
 
     /// Provides a [`CertificateRoot`] with only one ca certificate.
     pub fn single_ca_certificate() -> CertificateRoot {
@@ -138,6 +118,53 @@ pub mod fixtures {
             )]),
         };
         certs
+    }
+
+    /// Provides a [`CertificateRoot`] with a ca certificate that issues one client certificate.
+    pub fn ca_with_client_certificates() -> CertificateRoot {
+        let certs = CertificateRoot {
+            certificates: HashMap::from([("ca".to_string(), ca_with_client_certificate_type())]),
+        };
+        certs
+    }
+
+    /// Provides a [`CertificateRoot`] with only a client certificate.
+    pub fn single_client_certificate() -> CertificateRoot {
+        let certs = CertificateRoot {
+            certificates: HashMap::from([("client".to_string(), client_certificate_type())]),
+        };
+        certs
+    }
+
+    /// Provides a [`CertificateType`] that is a ca certificate.
+    pub fn ca_certificate_type() -> CertificateType {
+        CertificateType::CertificateAuthority(CertificateAuthorityConfiguration {
+            ..Default::default()
+        })
+    }
+
+    /// Provides a [`CertificateType`] that is a ca certificate that issues one client certificate.
+    pub fn ca_with_client_certificate_type() -> CertificateType {
+        CertificateType::CertificateAuthority(CertificateAuthorityConfiguration {
+            certificates: HashMap::from([("client".to_string(), client_certificate_type())]),
+            ..Default::default()
+        })
+    }
+
+    /// Provides a [`CertificateType`] that is a client certificate.
+    pub fn client_certificate_type() -> CertificateType {
+        CertificateType::Client(ClientConfiguration {
+            ip: IpAddr::V4(Ipv4Addr::LOCALHOST),
+            export_key: ClientConfiguration::default_export_key(),
+        })
+    }
+
+    /// Provides a [`CertificateType`] that is a server certificate.
+    pub fn server_certificate_type() -> CertificateType {
+        CertificateType::Server(ServerConfiguration {
+            ip: IpAddr::V4(Ipv4Addr::LOCALHOST),
+            export_key: ServerConfiguration::default_export_key(),
+        })
     }
 }
 
@@ -192,11 +219,13 @@ mod tests {
                     "certificates": {
                         "client_cert": {
                             "type": "client",
-                            "export_key": true
+                            "export_key": true,
+                            "ip": "192.168.1.10",
                         },
                         "server_cert": {
                             "type": "client",
-                            "export_key": true
+                            "export_key": true,
+                            "ip": "192.168.1.1",
                         }
                     }
                 }

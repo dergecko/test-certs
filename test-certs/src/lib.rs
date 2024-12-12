@@ -7,11 +7,11 @@
 use std::{fmt::Debug, io::Write, path::Path};
 
 use configuration::certificates::CertificateType;
-use rcgen::{
-    BasicConstraints, CertificateParams, DistinguishedName, DnType, IsCa, KeyPair, KeyUsagePurpose,
-};
+use generation::CertificateGenerator as _;
+use rcgen::KeyPair;
 
 pub mod configuration;
+mod generation;
 
 /// Errors when working with certificates.
 #[derive(Debug, thiserror::Error)]
@@ -95,7 +95,7 @@ fn generate_certificates(
     issuer: Option<&Certificate>,
 ) -> Result<Vec<Certificate>, Error> {
     let mut result = vec![];
-    let issuer = create_certificate(name, config, issuer)?;
+    let issuer = config.build(name, issuer)?;
 
     for (name, config) in config.certificates().iter() {
         let mut certificates = generate_certificates(name, config, Some(&issuer))?;
@@ -106,29 +106,6 @@ fn generate_certificates(
     Ok(result)
 }
 
-/// Create the actual certificate and private key.
-fn create_certificate(
-    name: &str,
-    certificate_config: &CertificateType,
-    issuer: Option<&Certificate>,
-) -> Result<Certificate, Error> {
-    let key = KeyPair::generate()?;
-
-    // TODO: right now the certificate type is ignored and no client or server auth certs are generated
-    let certificate = if let Some(issuer) = issuer {
-        issuer_params(name).signed_by(&key, &issuer.certificate, &issuer.key)?
-    } else {
-        issuer_params(name).self_signed(&key)?
-    };
-
-    Ok(Certificate {
-        certificate,
-        key,
-        export_key: certificate_config.export_key(),
-        name: name.to_string(),
-    })
-}
-
 impl Debug for Certificate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CertKey")
@@ -136,19 +113,6 @@ impl Debug for Certificate {
             .field("key", &self.key.serialize_pem())
             .finish()
     }
-}
-
-fn issuer_params(common_name: &str) -> CertificateParams {
-    let mut issuer_name = DistinguishedName::new();
-    issuer_name.push(DnType::CommonName, common_name);
-    let mut issuer_params = CertificateParams::default();
-    issuer_params.distinguished_name = issuer_name;
-    issuer_params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
-    issuer_params.key_usages = vec![
-        KeyUsagePurpose::KeyCertSign,
-        KeyUsagePurpose::DigitalSignature,
-    ];
-    issuer_params
 }
 
 #[cfg(test)]
@@ -169,14 +133,6 @@ mod test {
             2,
             "Expected to generate one ca certificate and one client certificate: {certificates:?}"
         )
-    }
-
-    #[test]
-    fn should_create_certificate() {
-        let config = client_certificate_type();
-        let result = create_certificate("test", &config, None);
-
-        assert!(result.is_ok())
     }
 
     #[test]
