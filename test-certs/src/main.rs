@@ -33,7 +33,7 @@ fn main() -> anyhow::Result<()> {
         .create(&args.outdir)?;
 
     let certificates = generate(&root)?;
-    info!("Generated {} certificates", certificates.len());
+    info!("Generated {} certificate(s)", certificates.len());
 
     for cert in certificates {
         cert.write(&args.outdir)?;

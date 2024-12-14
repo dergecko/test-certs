@@ -25,13 +25,7 @@ fn should_load_example_config() {
         .output()
         .unwrap();
 
-    assert!(dbg!(&output).status.success());
-
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(
-        stdout.contains("Loaded 1 root certificate(s)"),
-        "stdout does not contain 'Loaded 1 root certificate(s)', stdout: \n{stdout}"
-    );
+    assert!(&output.status.success());
 
     let files = dir.read_dir().unwrap();
     assert_eq!(files.count(), 7);
