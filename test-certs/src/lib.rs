@@ -1,6 +1,10 @@
 //! Code to implement certificate generation and test-certs application logic.
 
-use std::{fmt::Debug, io::Write, path::Path};
+use std::{
+    fmt::{Debug, Display},
+    io::Write,
+    path::Path,
+};
 
 use configuration::certificates::{CertificateRoot, CertificateType};
 use generation::CertificateGenerator as _;
@@ -98,6 +102,12 @@ fn generate_certificates(
 
     result.push(issuer);
     Ok(result)
+}
+
+impl Display for Certificate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
 }
 
 impl Debug for Certificate {

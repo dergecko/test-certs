@@ -6,34 +6,38 @@ use test_certs::{
     configuration::{Args, certificates::CertificateRoot},
     generate,
 };
-use tracing::info;
+use tracing::{debug, info};
 
 fn main() -> anyhow::Result<()> {
     // Init basic console subscriber
     tracing_subscriber::fmt::init();
     let args = Args::parse();
 
+    let content = args.input.contents()?;
+
     let root: CertificateRoot = match args.format {
         test_certs::configuration::ConfigFormat::Yaml => {
-            info!("Loading YAML certificate generation file {:?}", args.input);
-            serde_yaml::from_reader(std::fs::File::open(args.input.as_path())?)?
+            info!("Parsing input as YAML");
+            serde_yaml::from_str(&content)?
         }
         test_certs::configuration::ConfigFormat::Json => {
-            info!("Loading JSON certificate generation file {:?}", args.input);
-            serde_json::from_reader(std::fs::File::open(args.input.as_path())?)?
+            info!("Parsing input as JSON");
+            serde_json::from_str(&content)?
         }
     };
 
-    info!("Loaded {} root certificate(s)", root.certificates.len());
+    info!("Detected {} root certificate(s)", root.certificates.len());
 
     std::fs::DirBuilder::new()
         .recursive(true)
         .create(&args.outdir)?;
 
     let certificates = generate(&root)?;
+    info!("Generated {} certificates", certificates.len());
 
     for cert in certificates {
         cert.write(&args.outdir)?;
+        debug!("Saved {cert}")
     }
 
     Ok(())

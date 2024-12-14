@@ -2,6 +2,7 @@
 use std::{fmt::Display, path::PathBuf};
 
 use clap::{Parser, ValueEnum};
+use clap_stdin::FileOrStdin;
 
 pub mod certificates;
 
@@ -10,8 +11,8 @@ pub mod certificates;
 #[command(version, about, long_about = None)]
 pub struct Args {
     /// The input file that contains the certificate generation configuration.
-    #[arg(short, long, default_value = "./certificates.yaml")]
-    pub input: PathBuf,
+    #[arg(short, long, default_value = "-")]
+    pub input: FileOrStdin,
 
     /// Folder where all generated certificates will be saved.
     #[arg(short, long = "out-dir", default_value = "./certificates.d/")]
@@ -50,8 +51,24 @@ mod tests {
             Args::try_parse_from(&["", "--input", "./file.yaml", "--out-dir", "./certs", "json"])
                 .unwrap();
 
-        assert_eq!(args.input.display().to_string(), "./file.yaml");
         assert_eq!(args.format.to_string(), "json");
         assert_eq!(args.outdir.display().to_string(), "./certs");
+    }
+
+    #[test]
+    fn should_read_input_from_stdin() {
+        let args = Args::try_parse_from(&["", "--out-dir", "./certs", "json"]).unwrap();
+
+        assert!(args.input.is_stdin())
+    }
+
+    #[test]
+    fn should_read_input_from_argument() {
+        let args =
+            Args::try_parse_from(&["", "--input", "./file.yaml", "--out-dir", "./certs", "json"])
+                .unwrap();
+
+        assert!(args.input.is_file());
+        assert_eq!(args.input.filename(), "./file.yaml");
     }
 }
