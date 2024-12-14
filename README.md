@@ -14,7 +14,33 @@ This project could be the answer then!
 
 Write your certificate chain configuration once and create all necessary certificates when ever you need new ones!
 
-## Example
+## Usage
+
+For detailed information about the CLI run `test-certs --help`.
+
+It is possible to specific the input file via the command line.
+The input file can either be parsed as YAML or JSON 
+
+`test-certs --input ./cert.yaml --out-dir ./certs yaml`
+
+You can also pipe in a configuration via stdin:
+
+`echo "my-client:\n type: client\n ip: 127.0.0.1\n dns_name: my-client.com" | test-certs`
+
+This enables you to use heredoc to generate certificates:
+
+```bash
+cat << EOF | test-certs
+my-client:
+  type: client
+  ip: 127.0.0.1
+  dns_name: my-client.org
+EOF
+```
+
+
+
+## Example Configuration
 
 An example configuration file on how to create a root certificate that issues an intermediate ca which again issues a server and a client certificate.
 
