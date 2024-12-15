@@ -33,6 +33,8 @@ pub enum Error {
     #[error("Multiple errors occurred")]
     ErrorCollection(Vec<Error>),
 }
+/// Type alias to make code more readable.
+type Issuer = Arc<Certificate>;
 
 /// A pair of a certificate and the corresponding private key.
 pub struct Certificate {
@@ -40,7 +42,7 @@ pub struct Certificate {
     key: KeyPair,
     export_key: bool,
     name: String,
-    issuer: Option<Arc<Certificate>>,
+    issuer: Option<Issuer>,
 }
 
 impl PartialEq for Certificate {
@@ -73,6 +75,7 @@ impl Certificate {
             if current_issuer.issuer.is_none() {
                 // NOTE: If we have no issuer anymore we are at top level
                 //       and do not include the root ca.
+                //       See [RFC 5246](https://www.rfc-editor.org/rfc/rfc5246#section-7.4.2)
                 break;
             }
             cert.write_fmt(format_args!("{}", current_issuer.certificate.pem()))
@@ -122,7 +125,7 @@ pub fn generate(certificate_config: &CertificateRoot) -> Result<Vec<Arc<Certific
 fn generate_certificates(
     name: &str,
     config: &CertificateType,
-    issuer: Option<&Arc<Certificate>>,
+    issuer: Option<&Issuer>,
 ) -> Result<Vec<Arc<Certificate>>, Error> {
     let mut result = vec![];
     let issuer = config.build(name, issuer)?;

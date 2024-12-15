@@ -1,20 +1,15 @@
-use std::sync::Arc;
-
 use rcgen::{
     BasicConstraints, CertificateParams, DistinguishedName, DnType, ExtendedKeyUsagePurpose, IsCa,
     KeyPair, KeyUsagePurpose,
 };
 
 use crate::{
-    Certificate, Error,
+    Certificate, Error, Issuer,
     configuration::certificates::{
         CertificateAuthorityConfiguration, CertificateType, ClientConfiguration,
         ServerConfiguration, SubjectAlternativeNames,
     },
 };
-
-/// Type alias to make code more readable.
-type Issuer = Arc<Certificate>;
 
 /// Extension trait to convert [`CertificateType`] to [`Certificate`].
 // NOTE: Instead of a trait use actual types?
