@@ -122,19 +122,25 @@ impl CertificateType {
 }
 
 impl ServerConfiguration {
-    fn default_export_key() -> bool {
+    /// Default value for the export_key property.
+    pub fn default_export_key() -> bool {
         true
     }
-    fn default_include_certificate_chain() -> bool {
+
+    /// Default value for the include_certificate_chain property.
+    pub fn default_include_certificate_chain() -> bool {
         true
     }
 }
 
 impl ClientConfiguration {
-    fn default_export_key() -> bool {
+    /// Default value for the export_key property.
+    pub fn default_export_key() -> bool {
         true
     }
-    fn default_include_certificate_chain() -> bool {
+
+    /// Default value for the include_certificate_chain property.
+    pub fn default_include_certificate_chain() -> bool {
         true
     }
 }

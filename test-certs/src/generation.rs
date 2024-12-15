@@ -164,6 +164,8 @@ fn certificate_params(
 
 #[cfg(test)]
 mod tests {
+    use std::net::{IpAddr, Ipv4Addr};
+
     use crate::configuration::certificates::fixtures::{
         ca_certificate_type, client_certificate_type, server_certificate_type,
     };
@@ -203,6 +205,22 @@ mod tests {
         let parent = client_cert.issuer.unwrap();
 
         assert_eq!(parent, ca_cert);
+    }
+
+    #[test]
+    fn should_not_include_certificate_chain() {
+        let ca = ca_certificate_type();
+        let ca_cert = Issuer::new(ca.build("my-ca", None).unwrap());
+        let client = CertificateType::Client(ClientConfiguration {
+            subject_alternative_names: SubjectAlternativeNames {
+                ip: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+                dns_name: vec!["my-client.org".to_string()],
+            },
+            include_certificate_chain: false,
+            export_key: ClientConfiguration::default_export_key(),
+        });
+        let client_cert = client.build("client", Some(&ca_cert)).unwrap();
+        assert!(client_cert.issuer.is_none());
     }
 
     // TODO: write test to check wether client/server certs are really issued by a ca
