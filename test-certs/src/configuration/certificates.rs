@@ -70,6 +70,7 @@ pub struct ServerConfiguration {
 #[serde(deny_unknown_fields)]
 pub struct SubjectAlternativeNames {
     /// Ip addresses of the client.
+    #[serde(default)]
     #[serde_as(as = "OneOrMany<_, PreferOne>")]
     pub ip: Vec<IpAddr>,
 
@@ -306,6 +307,27 @@ mod tests {
 
         #[test]
         fn should_deserialize_client() {
+            let expected = ClientConfiguration {
+                export_key: false,
+                subject_alternative_names: SubjectAlternativeNames {
+                    ip: vec![],
+                    dns_name: vec!["my-client.org".to_string()],
+                },
+                include_certificate_chain: false,
+            };
+            let json = json!({
+                "export_key": false,
+                "dns_name": "my-client.org",
+                "include_certificate_chain": false
+            });
+
+            let deserialized: ClientConfiguration = serde_json::from_value(json).unwrap();
+
+            assert_eq!(deserialized, expected)
+        }
+
+        #[test]
+        fn should_deserialize_client_with_ip() {
             let expected = ClientConfiguration {
                 export_key: false,
                 subject_alternative_names: SubjectAlternativeNames {

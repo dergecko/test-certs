@@ -25,7 +25,7 @@ The input file can either be parsed as YAML or JSON
 
 You can also pipe in a configuration via stdin:
 
-`echo "my-client:\n type: client\n ip: 127.0.0.1\n dns_name: my-client.com" | test-certs`
+`echo "my-client:\n type: client\n dns_name: my-client.org" | test-certs`
 
 This enables you to use heredoc to generate certificates:
 
@@ -33,7 +33,6 @@ This enables you to use heredoc to generate certificates:
 cat << EOF | test-certs
 my-client:
   type: client
-  ip: 127.0.0.1
   dns_name: my-client.org
 EOF
 ```

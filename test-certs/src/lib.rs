@@ -45,23 +45,6 @@ pub struct Certificate {
     issuer: Option<Issuer>,
 }
 
-impl PartialEq for Certificate {
-    fn eq(&self, other: &Self) -> bool {
-        let Certificate {
-            certificate,
-            key,
-            export_key,
-            name,
-            issuer,
-        } = self;
-        certificate.der() == other.certificate.der()
-            && key.serialized_der() == other.key.serialize_der()
-            && *export_key == other.export_key
-            && *name == other.name
-            && *issuer == other.issuer
-    }
-}
-
 impl Certificate {
     /// Write the certificate and the key if marked for export to the specified folder.
     pub fn write(&self, directory: &Path) -> Result<(), Error> {
@@ -162,6 +145,23 @@ impl Debug for Certificate {
             .field("name", name)
             .field("issuer", issuer)
             .finish()
+    }
+}
+
+impl PartialEq for Certificate {
+    fn eq(&self, other: &Self) -> bool {
+        let Certificate {
+            certificate,
+            key,
+            export_key,
+            name,
+            issuer,
+        } = self;
+        certificate.der() == other.certificate.der()
+            && key.serialized_der() == other.key.serialize_der()
+            && *export_key == other.export_key
+            && *name == other.name
+            && *issuer == other.issuer
     }
 }
 
