@@ -4,6 +4,7 @@ use std::{
     fmt::{Debug, Display},
     io::Write,
     path::Path,
+    sync::Arc,
 };
 
 use configuration::certificates::{CertificateRoot, CertificateType};
@@ -39,6 +40,24 @@ pub struct Certificate {
     key: KeyPair,
     export_key: bool,
     name: String,
+    issuer: Option<Arc<Certificate>>,
+}
+
+impl PartialEq for Certificate {
+    fn eq(&self, other: &Self) -> bool {
+        let Certificate {
+            certificate,
+            key,
+            export_key,
+            name,
+            issuer,
+        } = self;
+        certificate.der() == other.certificate.der()
+            && key.serialized_der() == other.key.serialize_der()
+            && *export_key == other.export_key
+            && *name == other.name
+            && *issuer == other.issuer
+    }
 }
 
 impl Certificate {
@@ -48,6 +67,19 @@ impl Certificate {
 
         let mut cert =
             std::fs::File::create(&cert_file).map_err(Error::FailedToWriteCertificate)?;
+
+        let mut issuer = self.issuer.clone();
+        while let Some(ref current_issuer) = issuer {
+            if current_issuer.issuer.is_none() {
+                // NOTE: If we have no issuer anymore we are at top level
+                //       and do not include the root ca.
+                break;
+            }
+            cert.write_fmt(format_args!("{}", current_issuer.certificate.pem()))
+                .map_err(Error::FailedToWriteCertificate)?;
+            issuer = current_issuer.issuer.clone();
+        }
+
         cert.write_fmt(format_args!("{}", self.certificate.pem()))
             .map_err(Error::FailedToWriteCertificate)?;
 
@@ -63,8 +95,8 @@ impl Certificate {
 
 /// Generates all certificates that are present in the configuration file.
 // TODO: Make builder and return errors and certificates at the same time, maybe with an Iterator?
-pub fn generate(certificate_config: &CertificateRoot) -> Result<Vec<Certificate>, Error> {
-    let certs: Vec<Result<Vec<Certificate>, Error>> = certificate_config
+pub fn generate(certificate_config: &CertificateRoot) -> Result<Vec<Arc<Certificate>>, Error> {
+    let certs: Vec<Result<Vec<Arc<Certificate>>, Error>> = certificate_config
         .certificates
         .iter()
         .map(|(name, config)| generate_certificates(name, config, None))
@@ -90,17 +122,17 @@ pub fn generate(certificate_config: &CertificateRoot) -> Result<Vec<Certificate>
 fn generate_certificates(
     name: &str,
     config: &CertificateType,
-    issuer: Option<&Certificate>,
-) -> Result<Vec<Certificate>, Error> {
+    issuer: Option<&Arc<Certificate>>,
+) -> Result<Vec<Arc<Certificate>>, Error> {
     let mut result = vec![];
     let issuer = config.build(name, issuer)?;
-
+    let issuer = Arc::new(issuer);
     for (name, config) in config.certificates() {
         let mut certificates = generate_certificates(name, config, Some(&issuer))?;
         result.append(&mut certificates);
     }
 
-    result.push(issuer);
+    result.push(issuer.clone());
     Ok(result)
 }
 
@@ -117,6 +149,7 @@ impl Debug for Certificate {
             key,
             export_key,
             name,
+            issuer,
         } = self;
 
         f.debug_struct("CertKey")
@@ -124,6 +157,7 @@ impl Debug for Certificate {
             .field("key", &key.serialize_pem())
             .field("export_key", export_key)
             .field("name", name)
+            .field("issuer", issuer)
             .finish()
     }
 }
@@ -172,4 +206,6 @@ mod test {
             .any(|f| f.file_name() == "my-client.pem");
         assert!(file_exists)
     }
+
+    // TODO: Test if cert chain in file does match up
 }

@@ -17,6 +17,8 @@ my-root-ca:
         # Create a server auth certificate issued by my-intermediate-ca
         my-server:
           type: server
+          # By default all intermediate certificate authorities are included in the generated pem file
+          include_certificate_chain: false
           # Multiple IPs are also possible
           ip:
             - 192.168.1.1

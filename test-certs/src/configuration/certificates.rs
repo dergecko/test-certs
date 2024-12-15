@@ -35,6 +35,10 @@ pub struct ClientConfiguration {
     #[serde(default = "ClientConfiguration::default_export_key")]
     pub export_key: bool,
 
+    /// Includes all public certificates that are required for this certificate to be validated.
+    #[serde(default = "ClientConfiguration::default_include_certificate_chain")]
+    pub include_certificate_chain: bool,
+
     /// Properties that will be set as Subject Alternative Names (SAN)s.
     #[serde(flatten)]
     pub subject_alternative_names: SubjectAlternativeNames,
@@ -47,6 +51,10 @@ pub struct ServerConfiguration {
     /// Enables the export of the private key file.
     #[serde(default = "ServerConfiguration::default_export_key")]
     pub export_key: bool,
+
+    /// Includes all public certificates that are required for this certificate to be validated.
+    #[serde(default = "ServerConfiguration::default_include_certificate_chain")]
+    pub include_certificate_chain: bool,
 
     /// Properties that will be set as Subject Alternative Names (SAN)s.
     #[serde(flatten)]
@@ -117,10 +125,16 @@ impl ServerConfiguration {
     fn default_export_key() -> bool {
         true
     }
+    fn default_include_certificate_chain() -> bool {
+        true
+    }
 }
 
 impl ClientConfiguration {
     fn default_export_key() -> bool {
+        true
+    }
+    fn default_include_certificate_chain() -> bool {
         true
     }
 }
@@ -181,6 +195,7 @@ pub mod fixtures {
                 ip: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
                 dns_name: vec!["my-client.org".to_string()],
             },
+            include_certificate_chain: ClientConfiguration::default_include_certificate_chain(),
         })
     }
 
@@ -192,6 +207,7 @@ pub mod fixtures {
                 ip: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
                 dns_name: vec!["my-server.org".to_string()],
             },
+            include_certificate_chain: ServerConfiguration::default_include_certificate_chain(),
         })
     }
 }
@@ -290,11 +306,13 @@ mod tests {
                     ip: vec![IpAddr::V4(Ipv4Addr::new(192, 168, 1, 10))],
                     dns_name: vec!["my-client.org".to_string()],
                 },
+                include_certificate_chain: false,
             };
             let json = json!({
                 "export_key": false,
                 "ip": "192.168.1.10",
-                "dns_name": "my-client.org"
+                "dns_name": "my-client.org",
+                "include_certificate_chain": false
             });
 
             let deserialized: ClientConfiguration = serde_json::from_value(json).unwrap();
@@ -313,11 +331,13 @@ mod tests {
                     ],
                     dns_name: vec!["my-server.org".to_string(), "my-server.com".to_string()],
                 },
+                include_certificate_chain: false,
             };
             let json = json!({
                 "export_key": false,
                 "ip": ["192.168.1.1", "192.168.1.2"],
-                "dns_name": ["my-server.org", "my-server.com"]
+                "dns_name": ["my-server.org", "my-server.com"],
+                "include_certificate_chain": false
             });
 
             let deserialized: ServerConfiguration = serde_json::from_value(json).unwrap();
@@ -333,11 +353,35 @@ mod tests {
                     ip: vec![IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1))],
                     dns_name: vec!["my-server.org".to_string()],
                 },
+                include_certificate_chain: true,
             };
             let json = json!({
                 "export_key": false,
                 "ip": "192.168.1.1",
-                "dns_name": "my-server.org"
+                "dns_name": "my-server.org",
+                "include_certificate_chain": true
+            });
+
+            let deserialized: ServerConfiguration = serde_json::from_value(json).unwrap();
+
+            assert_eq!(deserialized, expected)
+        }
+
+        #[test]
+        fn should_deserialize_cert_chain() {
+            let expected = ServerConfiguration {
+                export_key: false,
+                subject_alternative_names: SubjectAlternativeNames {
+                    ip: vec![IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1))],
+                    dns_name: vec!["my-server.org".to_string()],
+                },
+                include_certificate_chain: true,
+            };
+            let json = json!({
+                "export_key": false,
+                "ip": "192.168.1.1",
+                "dns_name": "my-server.org",
+                "include_certificate_chain": true
             });
 
             let deserialized: ServerConfiguration = serde_json::from_value(json).unwrap();
