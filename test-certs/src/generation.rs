@@ -143,6 +143,8 @@ fn issuer_params(common_name: &str) -> CertificateParams {
 /// Sets basic certificate parameter for client and server auth certificates.
 ///
 /// Sets the subject alt names to the name and the ip.
+/// IP Addresses can be used in SAN,
+/// see [RFC 5280](https://www.rfc-editor.org/rfc/rfc5280#section-4.2.1.6).
 fn certificate_params(
     name: &str,
     san: &SubjectAlternativeNames,
