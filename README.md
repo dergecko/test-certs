@@ -2,6 +2,7 @@
 
 # test-certs
 A simple tool to generate a root certificate authority (CA), intermediate, client, and server certificates for testing purposes.
+This tool relies on [`rcgen`](https://docs.rs/rcgen/latest/rcgen/index.html) to generate x509 certificates.
 
 > This tool is not intended for production use. Please use a dedicated certificate infrastructure!
 

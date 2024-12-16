@@ -152,8 +152,25 @@ pub mod fixtures {
 
     use super::*;
 
+    /// Provides a [`CertificateRoot`] with a root ca, an intermediate ca, and a client cert.
+    pub fn ca_with_intermediate_and_client_certificate() -> CertificateRoot {
+        let certs = CertificateRoot {
+            certificates: HashMap::from([(
+                "root-ca".to_string(),
+                CertificateType::CertificateAuthority(CertificateAuthorityConfiguration {
+                    export_key: false,
+                    certificates: HashMap::from_iter([(
+                        "intermediate-ca".to_string(),
+                        ca_with_client_certificate_type(),
+                    )]),
+                }),
+            )]),
+        };
+        certs
+    }
+
     /// Provides a [`CertificateRoot`] with only one ca certificate.
-    pub fn single_ca_certificate() -> CertificateRoot {
+    pub fn ca_certificate() -> CertificateRoot {
         let certs = CertificateRoot {
             certificates: HashMap::from([(
                 "ca".to_string(),
@@ -172,7 +189,7 @@ pub mod fixtures {
     }
 
     /// Provides a [`CertificateRoot`] with only a client certificate.
-    pub fn single_client_certificate() -> CertificateRoot {
+    pub fn client_certificate() -> CertificateRoot {
         let certs = CertificateRoot {
             certificates: HashMap::from([("client".to_string(), client_certificate_type())]),
         };

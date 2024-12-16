@@ -163,8 +163,15 @@ fn certificate_params(
 mod tests {
     use std::net::{IpAddr, Ipv4Addr};
 
-    use crate::configuration::certificates::fixtures::{
-        ca_certificate_type, client_certificate_type, server_certificate_type,
+    use rustls::{RootCertStore, pki_types::UnixTime, server::WebPkiClientVerifier};
+
+    use crate::{
+        configuration::certificates::fixtures::{
+            ca_certificate_type, ca_with_client_certificates,
+            ca_with_intermediate_and_client_certificate, client_certificate_type,
+            server_certificate_type,
+        },
+        generate,
     };
 
     use super::*;
@@ -220,5 +227,39 @@ mod tests {
         assert!(client_cert.issuer.is_none());
     }
 
-    // TODO: write test to check wether client/server certs are really issued by a ca
+    #[test]
+    fn should_verify_client_with_ca() {
+        let root = ca_with_client_certificates();
+        let mut certs = generate(&root).unwrap();
+        let ca = certs.pop().unwrap();
+        let client = certs.pop().unwrap();
+        let mut roots = RootCertStore::empty();
+        roots.add(ca.certificate.der().clone()).unwrap();
+
+        let client_verifier = WebPkiClientVerifier::builder(roots.into()).build().unwrap();
+        let result =
+            client_verifier.verify_client_cert(client.certificate.der(), &[], UnixTime::now());
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn should_verify_client_with_intermediate_ca() {
+        let root = ca_with_intermediate_and_client_certificate();
+        let mut certs = generate(&root).unwrap();
+        let root_ca = certs.pop().unwrap();
+        let intermediate_ca = certs.pop().unwrap();
+        let client = certs.pop().unwrap();
+        let mut roots = RootCertStore::empty();
+        roots.add(root_ca.certificate.der().clone()).unwrap();
+
+        let client_verifier = WebPkiClientVerifier::builder(roots.into()).build().unwrap();
+        let result = client_verifier.verify_client_cert(
+            client.certificate.der(),
+            &[intermediate_ca.certificate.der().clone()],
+            UnixTime::now(),
+        );
+
+        assert!(result.is_ok());
+    }
 }
