@@ -169,6 +169,23 @@ pub mod fixtures {
         certs
     }
 
+    /// Provides a [`CertificateRoot`] with a root ca, an intermediate ca, and a server cert.
+    pub fn ca_with_intermediate_and_server_certificate() -> CertificateRoot {
+        let certs = CertificateRoot {
+            certificates: HashMap::from([(
+                "root-ca".to_string(),
+                CertificateType::CertificateAuthority(CertificateAuthorityConfiguration {
+                    export_key: false,
+                    certificates: HashMap::from_iter([(
+                        "intermediate-ca".to_string(),
+                        ca_with_server_certificate_type(),
+                    )]),
+                }),
+            )]),
+        };
+        certs
+    }
+
     /// Provides a [`CertificateRoot`] with only one ca certificate.
     pub fn ca_certificate() -> CertificateRoot {
         let certs = CertificateRoot {
@@ -220,6 +237,14 @@ pub mod fixtures {
                 dns_name: vec!["my-client.org".to_string()],
             },
             include_certificate_chain: ClientConfiguration::default_include_certificate_chain(),
+        })
+    }
+
+    /// Provides a [`CertificateType`] that is a ca certificate that issues one server certificate.
+    pub fn ca_with_server_certificate_type() -> CertificateType {
+        CertificateType::CertificateAuthority(CertificateAuthorityConfiguration {
+            certificates: HashMap::from([("server".to_string(), server_certificate_type())]),
+            ..Default::default()
         })
     }
 

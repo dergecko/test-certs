@@ -163,12 +163,18 @@ fn certificate_params(
 mod tests {
     use std::net::{IpAddr, Ipv4Addr};
 
-    use rustls::{RootCertStore, pki_types::UnixTime, server::WebPkiClientVerifier};
+    use rustls::{
+        RootCertStore,
+        client::{WebPkiServerVerifier, danger::ServerCertVerifier},
+        pki_types::{ServerName, UnixTime},
+        server::WebPkiClientVerifier,
+    };
 
     use crate::{
         configuration::certificates::fixtures::{
             ca_certificate_type, ca_with_client_certificates,
-            ca_with_intermediate_and_client_certificate, client_certificate_type,
+            ca_with_intermediate_and_client_certificate,
+            ca_with_intermediate_and_server_certificate, client_certificate_type,
             server_certificate_type,
         },
         generate,
@@ -257,6 +263,28 @@ mod tests {
         let result = client_verifier.verify_client_cert(
             client.certificate.der(),
             &[intermediate_ca.certificate.der().clone()],
+            UnixTime::now(),
+        );
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn should_verify_server_with_intermediate_ca() {
+        let root = ca_with_intermediate_and_server_certificate();
+        let mut certs = generate(&root).unwrap();
+        let root_ca = certs.pop().unwrap();
+        let intermediate_ca = certs.pop().unwrap();
+        let server = certs.pop().unwrap();
+        let mut roots = RootCertStore::empty();
+        roots.add(root_ca.certificate.der().clone()).unwrap();
+
+        let server_verifier = WebPkiServerVerifier::builder(roots.into()).build().unwrap();
+        let result = server_verifier.verify_server_cert(
+            server.certificate.der(),
+            &[intermediate_ca.certificate.der().clone()],
+            &ServerName::try_from("my-server.org").unwrap(),
+            &[],
             UnixTime::now(),
         );
 
